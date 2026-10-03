@@ -7,6 +7,8 @@ export default function UnauthorizedPage() {
     ? '/doctor/dashboard'
     : user?.role === 'PATIENT'
       ? '/patient/dashboard'
+      : user?.role === 'ADMIN'
+        ? '/admin/dashboard'
       : null;
 
   return (
@@ -17,7 +19,7 @@ export default function UnauthorizedPage() {
         <div className="mt-6 flex justify-center gap-4">
           {portalPath && (
             <Link className="font-medium text-teal-700 hover:text-teal-800" to={portalPath}>
-              {user.role === 'DOCTOR' ? 'Doctor workspace' : 'Patient portal'}
+              {user.role === 'DOCTOR' ? 'Doctor workspace' : user.role === 'ADMIN' ? 'Admin dashboard' : 'Patient portal'}
             </Link>
           )}
           <button className="font-medium text-slate-600 hover:text-slate-900" onClick={logout} type="button">

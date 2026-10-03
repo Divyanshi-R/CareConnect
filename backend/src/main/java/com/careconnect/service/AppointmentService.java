@@ -41,6 +41,13 @@ public class AppointmentService {
         this.userRepository = userRepository;
     }
 
+    @Transactional(readOnly = true)
+    public List<AppointmentResponse> listAll() {
+        return appointmentRepository.findAll().stream()
+                .map(AppointmentResponse::fromEntity)
+                .collect(Collectors.toList());
+    }
+
     @Transactional
     public AppointmentResponse create(AppointmentRequest request, UserDetails requestingUser) {
         // Validate patient exists

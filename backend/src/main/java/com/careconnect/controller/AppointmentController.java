@@ -22,6 +22,12 @@ public class AppointmentController {
         this.appointmentService = appointmentService;
     }
 
+    @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<AppointmentResponse>> listAll() {
+        return ResponseEntity.ok(appointmentService.listAll());
+    }
+
     @PostMapping
     @PreAuthorize("hasRole('ADMIN') or hasRole('PATIENT')")
     public ResponseEntity<AppointmentResponse> createAppointment(

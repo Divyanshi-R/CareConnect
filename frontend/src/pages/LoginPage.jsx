@@ -12,6 +12,7 @@ function getErrorMessage(error) {
 function getPortalPath(role) {
   if (role === 'DOCTOR') return '/doctor/dashboard';
   if (role === 'PATIENT') return '/patient/dashboard';
+  if (role === 'ADMIN') return '/admin/dashboard';
   return '/unauthorized';
 }
 
@@ -36,7 +37,13 @@ export default function LoginPage() {
       const authenticatedUser = await login(email, password);
       const portalPath = getPortalPath(authenticatedUser.role);
       const requestedPath = location.state?.from?.pathname;
-      const allowedPrefix = authenticatedUser.role === 'DOCTOR' ? '/doctor/' : '/patient/';
+      const allowedPrefix = authenticatedUser.role === 'DOCTOR'
+        ? '/doctor/'
+        : authenticatedUser.role === 'PATIENT'
+          ? '/patient/'
+          : authenticatedUser.role === 'ADMIN'
+            ? '/admin/'
+            : '';
       const destination = requestedPath?.startsWith(allowedPrefix) ? requestedPath : portalPath;
       navigate(destination, { replace: true });
     } catch (error) {

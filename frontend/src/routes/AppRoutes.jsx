@@ -1,4 +1,11 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
+import AdminDashboardPage from '../pages/admin/AdminDashboardPage.jsx';
+import AdminAppointmentsPage from '../pages/admin/AdminAppointmentsPage.jsx';
+import AdminDepartmentsPage from '../pages/admin/AdminDepartmentsPage.jsx';
+import AdminDoctorsPage from '../pages/admin/AdminDoctorsPage.jsx';
+import AdminPatientsPage from '../pages/admin/AdminPatientsPage.jsx';
+import AdminUsersPage from '../pages/admin/AdminUsersPage.jsx';
+import AdminPortalLayout from '../layouts/AdminPortalLayout.jsx';
 import ProtectedRoute from '../components/ProtectedRoute.jsx';
 import DoctorPortalLayout from '../layouts/DoctorPortalLayout.jsx';
 import PatientPortalLayout from '../layouts/PatientPortalLayout.jsx';
@@ -63,10 +70,19 @@ export default function AppRoutes() {
         path="/admin/*"
         element={
           <ProtectedRoute allowedRoles={['ADMIN']}>
-            <UnauthorizedPage />
+            <AdminPortalLayout />
           </ProtectedRoute>
         }
-      />
+      >
+        <Route index element={<Navigate to="/admin/dashboard" replace />} />
+        <Route path="dashboard" element={<AdminDashboardPage />} />
+        <Route path="users" element={<AdminUsersPage />} />
+        <Route path="doctors" element={<AdminDoctorsPage />} />
+        <Route path="patients" element={<AdminPatientsPage />} />
+        <Route path="departments" element={<AdminDepartmentsPage />} />
+        <Route path="appointments" element={<AdminAppointmentsPage />} />
+        <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
+      </Route>
       <Route path="/unauthorized" element={<UnauthorizedPage />} />
       <Route path="/" element={<Navigate to="/patient/dashboard" replace />} />
       <Route path="*" element={<Navigate to="/" replace />} />

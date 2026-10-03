@@ -131,6 +131,29 @@ class AppointmentControllerTest {
     }
 
     @Test
+    @DisplayName("Admin-only dashboard reads return safe users and all appointments")
+    void adminCanReadUsersAndAppointmentsOnly() throws Exception {
+        String adminToken = registerAndLogin("admin.read@example.com", "Password123", Role.ADMIN);
+        String patientToken = registerAndLogin("patient.read@example.com", "Password123", Role.PATIENT);
+
+        mockMvc.perform(get("/api/users").header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].email").value("admin.read@example.com"))
+                .andExpect(jsonPath("$[0].role").value("ADMIN"))
+                .andExpect(jsonPath("$[0].password").doesNotExist());
+
+        mockMvc.perform(get("/api/users").header("Authorization", "Bearer " + patientToken))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(get("/api/appointments").header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray());
+
+        mockMvc.perform(get("/api/appointments").header("Authorization", "Bearer " + patientToken))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     @DisplayName("Patient cannot create or view another patient's appointment")
     void patientCannotCreateOrViewAnother() throws Exception {
         String patient1Token = registerAndLogin("pat1.app@example.com", "Password123", Role.PATIENT);
