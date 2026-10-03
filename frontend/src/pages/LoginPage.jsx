@@ -9,6 +9,12 @@ function getErrorMessage(error) {
   return 'Unable to sign in. Please try again.';
 }
 
+function getPortalPath(role) {
+  if (role === 'DOCTOR') return '/doctor/dashboard';
+  if (role === 'PATIENT') return '/patient/dashboard';
+  return '/unauthorized';
+}
+
 export default function LoginPage() {
   const { user, login } = useAuth();
   const location = useLocation();
@@ -19,7 +25,7 @@ export default function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (user) {
-    return <Navigate to="/patient/dashboard" replace />;
+    return <Navigate to={getPortalPath(user.role)} replace />;
   }
 
   async function handleSubmit(event) {
@@ -28,11 +34,11 @@ export default function LoginPage() {
     setIsSubmitting(true);
     try {
       const authenticatedUser = await login(email, password);
-      if (authenticatedUser.role !== 'PATIENT') {
-        navigate('/unauthorized', { replace: true });
-        return;
-      }
-      navigate(location.state?.from?.pathname || '/patient/dashboard', { replace: true });
+      const portalPath = getPortalPath(authenticatedUser.role);
+      const requestedPath = location.state?.from?.pathname;
+      const allowedPrefix = authenticatedUser.role === 'DOCTOR' ? '/doctor/' : '/patient/';
+      const destination = requestedPath?.startsWith(allowedPrefix) ? requestedPath : portalPath;
+      navigate(destination, { replace: true });
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
     } finally {

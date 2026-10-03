@@ -1,6 +1,14 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import ProtectedRoute from '../components/ProtectedRoute.jsx';
+import DoctorPortalLayout from '../layouts/DoctorPortalLayout.jsx';
 import PatientPortalLayout from '../layouts/PatientPortalLayout.jsx';
+import DoctorAppointmentsPage from '../pages/doctor/DoctorAppointmentsPage.jsx';
+import DoctorDashboardPage from '../pages/doctor/DoctorDashboardPage.jsx';
+import DoctorEncounterPage from '../pages/doctor/DoctorEncounterPage.jsx';
+import DoctorOrdersPage from '../pages/doctor/DoctorOrdersPage.jsx';
+import DoctorPatientDetailsPage from '../pages/doctor/DoctorPatientDetailsPage.jsx';
+import DoctorPatientsPage from '../pages/doctor/DoctorPatientsPage.jsx';
+import DoctorPrescriptionsPage from '../pages/doctor/DoctorPrescriptionsPage.jsx';
 import LoginPage from '../pages/LoginPage.jsx';
 import PatientAppointmentsPage from '../pages/patient/PatientAppointmentsPage.jsx';
 import PatientDashboardPage from '../pages/patient/PatientDashboardPage.jsx';
@@ -37,10 +45,20 @@ export default function AppRoutes() {
         path="/doctor/*"
         element={
           <ProtectedRoute allowedRoles={['DOCTOR']}>
-            <UnauthorizedPage />
+            <DoctorPortalLayout />
           </ProtectedRoute>
         }
-      />
+      >
+        <Route index element={<Navigate to="/doctor/dashboard" replace />} />
+        <Route path="dashboard" element={<DoctorDashboardPage />} />
+        <Route path="appointments" element={<DoctorAppointmentsPage />} />
+        <Route path="patients" element={<DoctorPatientsPage />} />
+        <Route path="patients/:id" element={<DoctorPatientDetailsPage />} />
+        <Route path="encounters/:id" element={<DoctorEncounterPage />} />
+        <Route path="prescriptions" element={<DoctorPrescriptionsPage />} />
+        <Route path="orders" element={<DoctorOrdersPage />} />
+        <Route path="*" element={<Navigate to="/doctor/dashboard" replace />} />
+      </Route>
       <Route
         path="/admin/*"
         element={
