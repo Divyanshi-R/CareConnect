@@ -25,6 +25,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 class ClinicalNoteControllerTest {
+    @Autowired
+    private DepartmentRepository departmentRepository;
 
     @Autowired
     private MockMvc mockMvc;
@@ -58,6 +60,7 @@ class ClinicalNoteControllerTest {
         doctorRepository.deleteAll();
         patientRepository.deleteAll();
         userRepository.deleteAll();
+        departmentRepository.deleteAll();
     }
 
     private String registerAndLogin(String email, String password, Role role) throws Exception {

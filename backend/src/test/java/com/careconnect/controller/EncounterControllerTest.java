@@ -47,6 +47,9 @@ class EncounterControllerTest {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @Autowired
+    private DepartmentRepository departmentRepository;
+
     @BeforeEach
     void setUp() {
         encounterRepository.deleteAll();
@@ -54,6 +57,7 @@ class EncounterControllerTest {
         doctorRepository.deleteAll();
         patientRepository.deleteAll();
         userRepository.deleteAll();
+        departmentRepository.deleteAll();
     }
 
     private String registerAndLogin(String email, String password, Role role) throws Exception {
