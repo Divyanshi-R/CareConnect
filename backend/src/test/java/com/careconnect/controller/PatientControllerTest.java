@@ -125,6 +125,46 @@ class PatientControllerTest {
     }
 
     @Test
+    @DisplayName("Patient self-profile is patient-only, self-scoped, and returns 404 without a profile")
+    void patientCanRetrieveOwnProfileOnly() throws Exception {
+        String adminToken = registerAndLogin("admin.self@example.com", "Password123", Role.ADMIN);
+        String patientToken = registerAndLogin("patient.self@example.com", "Password123", Role.PATIENT);
+        String doctorToken = registerAndLogin("doctor.self@example.com", "Password123", Role.DOCTOR);
+        Long patientUserId = userRepository.findByEmail("patient.self@example.com").orElseThrow().getId();
+
+        PatientRequest request = new PatientRequest(
+                patientUserId, "Mia", "Patient", null, null, null, null, null, null);
+        mockMvc.perform(post("/api/patients")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(get("/api/patients/me")
+                        .header("Authorization", "Bearer " + patientToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.userId").value(patientUserId))
+                .andExpect(jsonPath("$.firstName").value("Mia"))
+                .andExpect(jsonPath("$.password").doesNotExist())
+                .andExpect(jsonPath("$.token").doesNotExist());
+
+        mockMvc.perform(get("/api/patients/me"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/patients/me")
+                        .header("Authorization", "Bearer " + doctorToken))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/patients/me")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isForbidden());
+
+        String patientWithoutProfileToken = registerAndLogin(
+                "patient.no-profile@example.com", "Password123", Role.PATIENT);
+        mockMvc.perform(get("/api/patients/me")
+                        .header("Authorization", "Bearer " + patientWithoutProfileToken))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
     @DisplayName("Unauthenticated access returns 401 and wrong roles 403")
     void unauthenticatedAndWrongRoles() throws Exception {
         mockMvc.perform(get("/api/patients")).andExpect(status().isUnauthorized());

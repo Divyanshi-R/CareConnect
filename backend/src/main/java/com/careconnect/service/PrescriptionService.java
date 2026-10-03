@@ -4,12 +4,14 @@ import com.careconnect.dto.PrescriptionItemRequest;
 import com.careconnect.dto.PrescriptionItemResponse;
 import com.careconnect.dto.PrescriptionRequest;
 import com.careconnect.dto.PrescriptionResponse;
+import com.careconnect.dto.MedicationResponse;
 import com.careconnect.entity.Doctor;
 import com.careconnect.entity.Encounter;
 import com.careconnect.entity.Medication;
 import com.careconnect.entity.Patient;
 import com.careconnect.entity.Prescription;
 import com.careconnect.entity.PrescriptionItem;
+import com.careconnect.entity.PrescriptionStatus;
 import com.careconnect.entity.Role;
 import com.careconnect.entity.User;
 import com.careconnect.exception.ResourceNotFoundException;
@@ -26,6 +28,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 @Service
 public class PrescriptionService {
@@ -37,6 +41,7 @@ public class PrescriptionService {
     private final DoctorRepository doctorRepository;
     private final MedicationRepository medicationRepository;
     private final UserRepository userRepository;
+    private final PatientService patientService;
 
     public PrescriptionService(
             PrescriptionRepository prescriptionRepository,
@@ -45,7 +50,8 @@ public class PrescriptionService {
             PatientRepository patientRepository,
             DoctorRepository doctorRepository,
             MedicationRepository medicationRepository,
-            UserRepository userRepository
+            UserRepository userRepository,
+            PatientService patientService
     ) {
         this.prescriptionRepository = prescriptionRepository;
         this.prescriptionItemRepository = prescriptionItemRepository;
@@ -54,6 +60,26 @@ public class PrescriptionService {
         this.doctorRepository = doctorRepository;
         this.medicationRepository = medicationRepository;
         this.userRepository = userRepository;
+        this.patientService = patientService;
+    }
+
+    @Transactional(readOnly = true)
+    public List<MedicationResponse> getMyActiveMedications(UserDetails requestingUser) {
+        Patient patient = patientService.getOwnPatient(requestingUser);
+        Set<Long> medicationIds = new LinkedHashSet<>();
+
+        for (Prescription prescription : prescriptionRepository.findByPatientId(patient.getId())) {
+            if (prescription.getStatus() == PrescriptionStatus.ACTIVE) {
+                prescriptionItemRepository.findByPrescriptionId(prescription.getId()).stream()
+                        .map(PrescriptionItem::getMedicationId)
+                        .forEach(medicationIds::add);
+            }
+        }
+
+        return medicationRepository.findAllById(medicationIds).stream()
+                .filter(Medication::isActive)
+                .map(MedicationResponse::fromEntity)
+                .toList();
     }
 
     @Transactional

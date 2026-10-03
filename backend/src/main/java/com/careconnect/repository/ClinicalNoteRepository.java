@@ -10,6 +10,7 @@ import java.util.Optional;
 @Repository
 public interface ClinicalNoteRepository extends JpaRepository<ClinicalNote, Long> {
     List<ClinicalNote> findByEncounterId(Long encounterId);
+    List<ClinicalNote> findByEncounterIdIn(List<Long> encounterIds);
     Optional<ClinicalNote> findByIdAndEncounterId(Long id, Long encounterId);
     Optional<ClinicalNote> findByIdAndDoctorId(Long id, Long doctorId);
     Optional<ClinicalNote> findByEncounterIdAndDoctorId(Long encounterId, Long doctorId);

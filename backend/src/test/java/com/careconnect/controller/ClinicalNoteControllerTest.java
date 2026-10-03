@@ -506,4 +506,76 @@ class ClinicalNoteControllerTest {
                 .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isNotFound());
     }
+
+    @Test
+    @DisplayName("Patient notes endpoint returns only notes from own encounters and is read-only")
+    void patientCanRetrieveOwnNotesOnly() throws Exception {
+        String adminToken = registerAndLogin("admin.m15.notes@example.com", "Password123", Role.ADMIN);
+        TestActor patient = createActor(adminToken, "patient.m15.notes.one", "Nora", "Patient");
+        TestActor otherPatient = createActor(adminToken, "patient.m15.notes.two", "Owen", "Patient");
+
+        ClinicalNote ownNote = createPersistedNote(patient.encounterId(), patient.doctorId(),
+                "Patient's own clinical note");
+        createPersistedNote(otherPatient.encounterId(), otherPatient.doctorId(),
+                "Another patient's private note");
+
+        mockMvc.perform(get("/api/patients/me/notes")
+                        .header("Authorization", "Bearer " + patient.patientToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].id").value(ownNote.getId()))
+                .andExpect(jsonPath("$[0].content").value("Patient's own clinical note"));
+
+        mockMvc.perform(get("/api/patients/me/notes"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/patients/me/notes")
+                        .header("Authorization", "Bearer " + patient.doctorToken()))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/patients/me/notes")
+                        .header("Authorization", "Bearer " + patient.patientToken()))
+                .andExpect(status().isMethodNotAllowed());
+    }
+
+    private ClinicalNote createPersistedNote(Long encounterId, Long doctorId, String content) {
+        ClinicalNote note = new ClinicalNote();
+        note.setEncounterId(encounterId);
+        note.setDoctorId(doctorId);
+        note.setNoteType(NoteType.GENERAL);
+        note.setContent(content);
+        return clinicalNoteRepository.save(note);
+    }
+
+    private TestActor createActor(String adminToken, String emailPrefix, String firstName, String lastName)
+            throws Exception {
+        String patientEmail = emailPrefix + ".patient@example.com";
+        String doctorEmail = emailPrefix + ".doctor@example.com";
+        String patientToken = registerAndLogin(patientEmail, "Password123", Role.PATIENT);
+        String doctorToken = registerAndLogin(doctorEmail, "Password123", Role.DOCTOR);
+        Long patientId = createPatient(adminToken, patientEmail, firstName, lastName);
+        Long doctorUserId = userRepository.findByEmail(doctorEmail).orElseThrow().getId();
+
+        String departmentResponse = mockMvc.perform(post("/api/departments")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new DepartmentRequest(
+                                "M15 " + emailPrefix, null))))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        Long departmentId = objectMapper.readTree(departmentResponse).get("id").asLong();
+        Long doctorId = createDoctor(adminToken, doctorUserId, departmentId, "Dr.", "M15",
+                "LIC-" + emailPrefix);
+        Long appointmentId = createAppointment(patientToken, patientId, doctorId,
+                LocalDate.now().plusDays(8), LocalTime.of(14, 0));
+        Long encounterId = createEncounter(patientToken, patientId, doctorId, appointmentId);
+        return new TestActor(patientToken, doctorToken, patientId, doctorId, encounterId);
+    }
+
+    private record TestActor(
+            String patientToken,
+            String doctorToken,
+            Long patientId,
+            Long doctorId,
+            Long encounterId
+    ) {
+    }
 }

@@ -2,7 +2,11 @@ package com.careconnect.controller;
 
 import com.careconnect.dto.PatientRequest;
 import com.careconnect.dto.PatientResponse;
+import com.careconnect.dto.ClinicalNoteResponse;
+import com.careconnect.dto.MedicationResponse;
+import com.careconnect.service.ClinicalNoteService;
 import com.careconnect.service.PatientService;
+import com.careconnect.service.PrescriptionService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -17,9 +21,41 @@ import java.util.List;
 public class PatientController {
 
     private final PatientService patientService;
+    private final PrescriptionService prescriptionService;
+    private final ClinicalNoteService clinicalNoteService;
 
-    public PatientController(PatientService patientService) {
+    public PatientController(
+            PatientService patientService,
+            PrescriptionService prescriptionService,
+            ClinicalNoteService clinicalNoteService
+    ) {
         this.patientService = patientService;
+        this.prescriptionService = prescriptionService;
+        this.clinicalNoteService = clinicalNoteService;
+    }
+
+    @GetMapping("/me")
+    @PreAuthorize("hasRole('PATIENT')")
+    public ResponseEntity<PatientResponse> getMyProfile(
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        return ResponseEntity.ok(patientService.getMyProfile(userDetails));
+    }
+
+    @GetMapping("/me/medications")
+    @PreAuthorize("hasRole('PATIENT')")
+    public ResponseEntity<List<MedicationResponse>> getMyMedications(
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        return ResponseEntity.ok(prescriptionService.getMyActiveMedications(userDetails));
+    }
+
+    @GetMapping("/me/notes")
+    @PreAuthorize("hasRole('PATIENT')")
+    public ResponseEntity<List<ClinicalNoteResponse>> getMyNotes(
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        return ResponseEntity.ok(clinicalNoteService.getMyNotes(userDetails));
     }
 
     @GetMapping

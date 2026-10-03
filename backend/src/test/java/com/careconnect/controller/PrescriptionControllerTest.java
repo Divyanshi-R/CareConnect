@@ -440,6 +440,50 @@ class PrescriptionControllerTest {
                 .andExpect(status().isBadRequest());
     }
 
+    @Test
+    @DisplayName("Patient medication endpoint returns distinct active prescribed medications only")
+    void patientCanRetrieveOwnActiveMedicationsOnly() throws Exception {
+        String adminToken = registerAndLogin("m15.med.admin@example.com", Role.ADMIN);
+        TestActor patient = createActor(adminToken, "m15.med.one", 4);
+        TestActor otherPatient = createActor(adminToken, "m15.med.two", 5);
+
+        Medication activeMedication = createMedication("Patient Active Medication");
+        Medication inactiveMedication = createMedication("Patient Inactive Catalog Medication");
+        inactiveMedication.setActive(false);
+        medicationRepository.save(inactiveMedication);
+        Medication fromCompletedPrescription = createMedication("Completed Prescription Medication");
+        Medication otherPatientMedication = createMedication("Other Patient Medication");
+
+        createPrescription(patient, List.of(activeMedication.getId(), activeMedication.getId(),
+                inactiveMedication.getId()));
+        mockMvc.perform(post("/api/prescriptions")
+                        .header("Authorization", bearer(patient.doctorToken()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(prescriptionRequest(
+                                patient, List.of(fromCompletedPrescription.getId()), PrescriptionStatus.COMPLETED))))
+                .andExpect(status().isCreated());
+        createPrescription(otherPatient, List.of(otherPatientMedication.getId()));
+
+        mockMvc.perform(get("/api/patients/me/medications")
+                        .header("Authorization", bearer(patient.patientToken())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].id").value(activeMedication.getId()))
+                .andExpect(jsonPath("$[0].name").value("Patient Active Medication"))
+                .andExpect(jsonPath("$[0].active").value(true))
+                .andExpect(jsonPath("$[0].password").doesNotExist())
+                .andExpect(jsonPath("$[0].token").doesNotExist());
+
+        mockMvc.perform(get("/api/patients/me/medications"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/patients/me/medications")
+                        .header("Authorization", bearer(patient.doctorToken())))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/patients/me/medications")
+                        .header("Authorization", bearer(adminToken)))
+                .andExpect(status().isForbidden());
+    }
+
     private PrescriptionRequest prescriptionRequest(TestActor actor, List<Long> medicationIds, PrescriptionStatus status) {
         return prescriptionRequest(
                 actor, actor.patientId(), actor.doctorId(), actor.encounterId(), medicationIds, status);

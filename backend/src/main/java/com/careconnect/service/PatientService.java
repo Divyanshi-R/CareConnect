@@ -49,6 +49,27 @@ public class PatientService {
         return PatientResponse.fromEntity(patient);
     }
 
+    @Transactional(readOnly = true)
+    public PatientResponse getMyProfile(UserDetails requestingUser) {
+        return PatientResponse.fromEntity(getOwnPatient(requestingUser));
+    }
+
+    @Transactional(readOnly = true)
+    public Patient getOwnPatient(UserDetails requestingUser) {
+        if (requestingUser == null) {
+            throw new AccessDeniedException("Authentication required");
+        }
+
+        User user = userRepository.findByEmail(requestingUser.getUsername())
+                .orElseThrow(() -> new ResourceNotFoundException("User", "email", requestingUser.getUsername()));
+        if (user.getRole() != Role.PATIENT) {
+            throw new AccessDeniedException("Access denied");
+        }
+
+        return patientRepository.findByUserId(user.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Patient", "userId", user.getId()));
+    }
+
     @Transactional
     public PatientResponse create(PatientRequest request) {
         // verify user exists and is PATIENT role

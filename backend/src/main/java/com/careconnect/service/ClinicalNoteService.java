@@ -30,19 +30,37 @@ public class ClinicalNoteService {
     private final DoctorRepository doctorRepository;
     private final PatientRepository patientRepository;
     private final UserRepository userRepository;
+    private final PatientService patientService;
 
     public ClinicalNoteService(
             ClinicalNoteRepository clinicalNoteRepository,
             EncounterRepository encounterRepository,
             DoctorRepository doctorRepository,
             PatientRepository patientRepository,
-            UserRepository userRepository
+            UserRepository userRepository,
+            PatientService patientService
     ) {
         this.clinicalNoteRepository = clinicalNoteRepository;
         this.encounterRepository = encounterRepository;
         this.doctorRepository = doctorRepository;
         this.patientRepository = patientRepository;
         this.userRepository = userRepository;
+        this.patientService = patientService;
+    }
+
+    @Transactional(readOnly = true)
+    public List<ClinicalNoteResponse> getMyNotes(UserDetails requestingUser) {
+        Patient patient = patientService.getOwnPatient(requestingUser);
+        List<Long> encounterIds = encounterRepository.findByPatientId(patient.getId()).stream()
+                .map(Encounter::getId)
+                .toList();
+        if (encounterIds.isEmpty()) {
+            return List.of();
+        }
+
+        return clinicalNoteRepository.findByEncounterIdIn(encounterIds).stream()
+                .map(ClinicalNoteResponse::fromEntity)
+                .collect(Collectors.toList());
     }
 
     @Transactional
