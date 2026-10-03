@@ -2,6 +2,7 @@ package com.careconnect.service;
 
 import com.careconnect.dto.ClinicalOrderRequest;
 import com.careconnect.dto.ClinicalOrderResponse;
+import com.careconnect.entity.AuditAction;
 import com.careconnect.entity.ClinicalOrder;
 import com.careconnect.entity.Doctor;
 import com.careconnect.entity.Encounter;
@@ -31,19 +32,22 @@ public class ClinicalOrderService {
     private final PatientRepository patientRepository;
     private final DoctorRepository doctorRepository;
     private final UserRepository userRepository;
+    private final AuditLogService auditLogService;
 
     public ClinicalOrderService(
             ClinicalOrderRepository clinicalOrderRepository,
             EncounterRepository encounterRepository,
             PatientRepository patientRepository,
             DoctorRepository doctorRepository,
-            UserRepository userRepository
+            UserRepository userRepository,
+            AuditLogService auditLogService
     ) {
         this.clinicalOrderRepository = clinicalOrderRepository;
         this.encounterRepository = encounterRepository;
         this.patientRepository = patientRepository;
         this.doctorRepository = doctorRepository;
         this.userRepository = userRepository;
+        this.auditLogService = auditLogService;
     }
 
     @Transactional
@@ -66,7 +70,9 @@ public class ClinicalOrderService {
         order.setStatus(OrderStatus.ORDERED);
         order.setOrderedAt(LocalDateTime.now());
         order.setCompletedAt(null);
-        return ClinicalOrderResponse.fromEntity(clinicalOrderRepository.save(order));
+        ClinicalOrder saved = clinicalOrderRepository.save(order);
+        auditLogService.record(AuditAction.CLINICAL_ORDER_CREATED, requestingUser, "ClinicalOrder", saved.getId());
+        return ClinicalOrderResponse.fromEntity(saved);
     }
 
     @Transactional(readOnly = true)

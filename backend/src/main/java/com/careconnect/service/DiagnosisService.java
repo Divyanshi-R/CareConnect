@@ -2,6 +2,7 @@ package com.careconnect.service;
 
 import com.careconnect.dto.DiagnosisRequest;
 import com.careconnect.dto.DiagnosisResponse;
+import com.careconnect.entity.AuditAction;
 import com.careconnect.entity.Diagnosis;
 import com.careconnect.entity.Doctor;
 import com.careconnect.entity.Encounter;
@@ -30,19 +31,22 @@ public class DiagnosisService {
     private final PatientRepository patientRepository;
     private final DoctorRepository doctorRepository;
     private final UserRepository userRepository;
+    private final AuditLogService auditLogService;
 
     public DiagnosisService(
             DiagnosisRepository diagnosisRepository,
             EncounterRepository encounterRepository,
             PatientRepository patientRepository,
             DoctorRepository doctorRepository,
-            UserRepository userRepository
+            UserRepository userRepository,
+            AuditLogService auditLogService
     ) {
         this.diagnosisRepository = diagnosisRepository;
         this.encounterRepository = encounterRepository;
         this.patientRepository = patientRepository;
         this.doctorRepository = doctorRepository;
         this.userRepository = userRepository;
+        this.auditLogService = auditLogService;
     }
 
     @Transactional
@@ -58,7 +62,9 @@ public class DiagnosisService {
         diagnosis.setDoctorId(encounter.getDoctorId());
         applyRequest(diagnosis, request);
 
-        return DiagnosisResponse.fromEntity(diagnosisRepository.save(diagnosis));
+        Diagnosis saved = diagnosisRepository.save(diagnosis);
+        auditLogService.record(AuditAction.DIAGNOSIS_CREATED, requestingUser, "Diagnosis", saved.getId());
+        return DiagnosisResponse.fromEntity(saved);
     }
 
     @Transactional(readOnly = true)

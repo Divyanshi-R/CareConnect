@@ -12,8 +12,11 @@ import com.careconnect.dto.RegisterRequest;
 import com.careconnect.entity.Medication;
 import com.careconnect.entity.MedicationForm;
 import com.careconnect.entity.PrescriptionStatus;
+import com.careconnect.entity.AuditAction;
+import com.careconnect.entity.AuditLog;
 import com.careconnect.entity.Role;
 import com.careconnect.repository.AppointmentRepository;
+import com.careconnect.repository.AuditLogRepository;
 import com.careconnect.repository.ClinicalNoteRepository;
 import com.careconnect.repository.DepartmentRepository;
 import com.careconnect.repository.DiagnosisRepository;
@@ -58,6 +61,9 @@ class PrescriptionControllerTest {
     private UserRepository userRepository;
 
     @Autowired
+    private AuditLogRepository auditLogRepository;
+
+    @Autowired
     private PatientRepository patientRepository;
 
     @Autowired
@@ -92,6 +98,7 @@ class PrescriptionControllerTest {
 
     @BeforeEach
     void setUp() {
+        auditLogRepository.deleteAll();
         prescriptionItemRepository.deleteAll();
         prescriptionRepository.deleteAll();
         diagnosisRepository.deleteAll();
@@ -259,6 +266,15 @@ class PrescriptionControllerTest {
 
         JsonNode created = objectMapper.readTree(createResult.getResponse().getContentAsString());
         Long prescriptionId = created.get("id").asLong();
+        AuditLog prescriptionAudit = auditLogRepository.findByAction(AuditAction.PRESCRIPTION_CREATED).stream()
+                .filter(log -> prescriptionId.equals(log.getEntityId()))
+                .findFirst()
+                .orElseThrow();
+        assertThat(prescriptionAudit.getUserId()).isEqualTo(
+                doctorRepository.findById(actor.doctorId()).orElseThrow().getUserId());
+        assertThat(prescriptionAudit.getEntityType()).isEqualTo("Prescription");
+        assertThat(prescriptionAudit.getTimestamp()).isNotNull();
+        assertThat(prescriptionAudit.getIpAddress()).isNotBlank();
         assertThat(created.fieldNames()).toIterable().containsExactlyInAnyOrder(
                 "id", "patientId", "doctorId", "encounterId", "prescribedDate",
                 "instructions", "status", "createdAt", "updatedAt", "items");

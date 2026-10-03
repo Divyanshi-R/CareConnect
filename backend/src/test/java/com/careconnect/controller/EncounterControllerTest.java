@@ -33,6 +33,9 @@ class EncounterControllerTest {
     private UserRepository userRepository;
 
     @Autowired
+    private AuditLogRepository auditLogRepository;
+
+    @Autowired
     private PatientRepository patientRepository;
 
     @Autowired
@@ -52,6 +55,7 @@ class EncounterControllerTest {
 
     @BeforeEach
     void setUp() {
+        auditLogRepository.deleteAll();
         encounterRepository.deleteAll();
         appointmentRepository.deleteAll();
         doctorRepository.deleteAll();
@@ -164,6 +168,15 @@ class EncounterControllerTest {
                 .getContentAsString();
 
         Long encounterId = objectMapper.readTree(createdJson).get("id").asLong();
+        AuditLog encounterAudit = auditLogRepository.findByAction(AuditAction.ENCOUNTER_CREATED).stream()
+                .filter(log -> encounterId.equals(log.getEntityId()))
+                .findFirst()
+                .orElseThrow();
+        assertThat(encounterAudit.getUserId()).isEqualTo(userRepository.findByEmail("patient.m9@example.com")
+                .orElseThrow().getId());
+        assertThat(encounterAudit.getEntityType()).isEqualTo("Encounter");
+        assertThat(encounterAudit.getTimestamp()).isNotNull();
+        assertThat(encounterAudit.getIpAddress()).isNotBlank();
 
         mockMvc.perform(get("/api/encounters/" + encounterId)
                 .header("Authorization", "Bearer " + patientToken))

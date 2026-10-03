@@ -2,6 +2,7 @@ package com.careconnect.service;
 
 import com.careconnect.dto.PatientRequest;
 import com.careconnect.dto.PatientResponse;
+import com.careconnect.entity.AuditAction;
 import com.careconnect.entity.Patient;
 import com.careconnect.entity.Role;
 import com.careconnect.entity.User;
@@ -22,10 +23,16 @@ public class PatientService {
 
     private final PatientRepository patientRepository;
     private final UserRepository userRepository;
+    private final AuditLogService auditLogService;
 
-    public PatientService(PatientRepository patientRepository, UserRepository userRepository) {
+    public PatientService(
+            PatientRepository patientRepository,
+            UserRepository userRepository,
+            AuditLogService auditLogService
+    ) {
         this.patientRepository = patientRepository;
         this.userRepository = userRepository;
+        this.auditLogService = auditLogService;
     }
 
     @Transactional(readOnly = true)
@@ -71,7 +78,7 @@ public class PatientService {
     }
 
     @Transactional
-    public PatientResponse create(PatientRequest request) {
+    public PatientResponse create(PatientRequest request, UserDetails requestingUser) {
         // verify user exists and is PATIENT role
         User user = userRepository.findById(request.userId())
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", request.userId()));
@@ -96,6 +103,7 @@ public class PatientService {
         patient.setBloodGroup(request.bloodGroup());
 
         Patient saved = patientRepository.save(patient);
+        auditLogService.record(AuditAction.PATIENT_CREATED, requestingUser, "Patient", saved.getId());
         return PatientResponse.fromEntity(saved);
     }
 
@@ -131,6 +139,7 @@ public class PatientService {
         patient.setBloodGroup(request.bloodGroup());
 
         Patient saved = patientRepository.save(patient);
+        auditLogService.record(AuditAction.PATIENT_UPDATED, requestingUser, "Patient", saved.getId());
         return PatientResponse.fromEntity(saved);
     }
 }

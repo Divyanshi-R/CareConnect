@@ -9,7 +9,10 @@ import com.careconnect.dto.LoginRequest;
 import com.careconnect.dto.PatientRequest;
 import com.careconnect.dto.RegisterRequest;
 import com.careconnect.entity.DiagnosisStatus;
+import com.careconnect.entity.AuditAction;
+import com.careconnect.entity.AuditLog;
 import com.careconnect.entity.Role;
+import com.careconnect.repository.AuditLogRepository;
 import com.careconnect.repository.AppointmentRepository;
 import com.careconnect.repository.DepartmentRepository;
 import com.careconnect.repository.DiagnosisRepository;
@@ -51,6 +54,9 @@ class DiagnosisControllerTest {
     private UserRepository userRepository;
 
     @Autowired
+    private AuditLogRepository auditLogRepository;
+
+    @Autowired
     private PatientRepository patientRepository;
 
     @Autowired
@@ -74,6 +80,7 @@ class DiagnosisControllerTest {
     @BeforeEach
     @AfterEach
     void cleanRepositories() {
+        auditLogRepository.deleteAll();
         diagnosisRepository.deleteAll();
         encounterRepository.deleteAll();
         appointmentRepository.deleteAll();
@@ -189,6 +196,15 @@ class DiagnosisControllerTest {
                 .andExpect(jsonPath("$.status").value("ACTIVE"))
                 .andReturn().getResponse().getContentAsString();
         Long diagnosisId = objectMapper.readTree(created).get("id").asLong();
+        AuditLog diagnosisAudit = auditLogRepository.findByAction(AuditAction.DIAGNOSIS_CREATED).stream()
+                .filter(log -> diagnosisId.equals(log.getEntityId()))
+                .findFirst()
+                .orElseThrow();
+        org.assertj.core.api.Assertions.assertThat(diagnosisAudit.getUserId())
+                .isEqualTo(userRepository.findByEmail("doctor.m11.1@example.com").orElseThrow().getId());
+        org.assertj.core.api.Assertions.assertThat(diagnosisAudit.getEntityType()).isEqualTo("Diagnosis");
+        org.assertj.core.api.Assertions.assertThat(diagnosisAudit.getTimestamp()).isNotNull();
+        org.assertj.core.api.Assertions.assertThat(diagnosisAudit.getIpAddress()).isNotBlank();
 
         mockMvc.perform(get("/api/encounters/{encounterId}/diagnoses", encounterId)
                         .header("Authorization", "Bearer " + doctorToken))

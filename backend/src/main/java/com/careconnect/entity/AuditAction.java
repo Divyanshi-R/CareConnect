@@ -1,0 +1,12 @@
+package com.careconnect.entity;
+
+public enum AuditAction {
+    LOGIN,
+    FAILED_LOGIN,
+    PATIENT_CREATED,
+    PATIENT_UPDATED,
+    ENCOUNTER_CREATED,
+    DIAGNOSIS_CREATED,
+    PRESCRIPTION_CREATED,
+    CLINICAL_ORDER_CREATED
+}

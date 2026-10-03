@@ -75,8 +75,11 @@ public class PatientController {
 
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<PatientResponse> createPatient(@Valid @RequestBody PatientRequest request) {
-        PatientResponse response = patientService.create(request);
+    public ResponseEntity<PatientResponse> createPatient(
+            @Valid @RequestBody PatientRequest request,
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        PatientResponse response = patientService.create(request, userDetails);
         return ResponseEntity.status(201).body(response);
     }
 

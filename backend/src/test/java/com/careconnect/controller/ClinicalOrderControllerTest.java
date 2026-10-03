@@ -8,11 +8,14 @@ import com.careconnect.dto.LoginRequest;
 import com.careconnect.dto.PatientRequest;
 import com.careconnect.dto.RegisterRequest;
 import com.careconnect.entity.ClinicalOrder;
+import com.careconnect.entity.AuditAction;
+import com.careconnect.entity.AuditLog;
 import com.careconnect.entity.OrderPriority;
 import com.careconnect.entity.OrderStatus;
 import com.careconnect.entity.OrderType;
 import com.careconnect.entity.Role;
 import com.careconnect.repository.AppointmentRepository;
+import com.careconnect.repository.AuditLogRepository;
 import com.careconnect.repository.ClinicalNoteRepository;
 import com.careconnect.repository.ClinicalOrderRepository;
 import com.careconnect.repository.DepartmentRepository;
@@ -57,6 +60,9 @@ class ClinicalOrderControllerTest {
     private UserRepository userRepository;
 
     @Autowired
+    private AuditLogRepository auditLogRepository;
+
+    @Autowired
     private PatientRepository patientRepository;
 
     @Autowired
@@ -94,6 +100,7 @@ class ClinicalOrderControllerTest {
 
     @BeforeEach
     void cleanRepositories() {
+        auditLogRepository.deleteAll();
         clinicalOrderRepository.deleteAll();
         prescriptionItemRepository.deleteAll();
         prescriptionRepository.deleteAll();
@@ -131,6 +138,15 @@ class ClinicalOrderControllerTest {
 
         JsonNode response = objectMapper.readTree(result.getResponse().getContentAsString());
         Long orderId = response.get("id").asLong();
+        AuditLog orderAudit = auditLogRepository.findByAction(AuditAction.CLINICAL_ORDER_CREATED).stream()
+                .filter(log -> orderId.equals(log.getEntityId()))
+                .findFirst()
+                .orElseThrow();
+        assertThat(orderAudit.getUserId())
+                .isEqualTo(doctorRepository.findById(actor.doctorId()).orElseThrow().getUserId());
+        assertThat(orderAudit.getEntityType()).isEqualTo("ClinicalOrder");
+        assertThat(orderAudit.getTimestamp()).isNotNull();
+        assertThat(orderAudit.getIpAddress()).isNotBlank();
         assertThat(response.fieldNames()).toIterable().containsExactlyInAnyOrder(
                 "id", "patientId", "doctorId", "encounterId", "orderType", "description",
                 "priority", "status", "orderedAt", "completedAt");

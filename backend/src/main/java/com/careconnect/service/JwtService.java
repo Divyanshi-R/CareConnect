@@ -12,13 +12,12 @@ import io.jsonwebtoken.UnsupportedJwtException;
 import io.jsonwebtoken.security.Keys;
 import io.jsonwebtoken.security.SignatureException;
 import org.springframework.beans.factory.annotation.Value;
+import jakarta.annotation.PostConstruct;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -27,23 +26,24 @@ import java.util.function.Function;
 @Service
 public class JwtService {
 
-    @Value("${app.jwt.secret:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}")
+    @Value("${app.jwt.secret}")
     private String secret;
 
     @Value("${app.jwt.expiration-ms:86400000}")
     private long expirationMs;
 
-    private SecretKey getSigningKey() {
-        byte[] keyBytes = secret.getBytes(StandardCharsets.UTF_8);
-        if (keyBytes.length < 32) {
-            try {
-                MessageDigest md = MessageDigest.getInstance("SHA-256");
-                keyBytes = md.digest(keyBytes);
-            } catch (NoSuchAlgorithmException e) {
-                throw new IllegalStateException("SHA-256 digest algorithm not available", e);
-            }
+    @PostConstruct
+    private void validateConfiguration() {
+        if (secret == null || secret.getBytes(StandardCharsets.UTF_8).length < 32) {
+            throw new IllegalStateException("JWT signing secret must contain at least 32 UTF-8 bytes");
         }
-        return Keys.hmacShaKeyFor(keyBytes);
+        if (expirationMs <= 0) {
+            throw new IllegalStateException("JWT expiration must be a positive number of milliseconds");
+        }
+    }
+
+    private SecretKey getSigningKey() {
+        return Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     }
 
     public String generateToken(UserPrincipal userPrincipal) {
@@ -127,7 +127,7 @@ public class JwtService {
         } catch (IllegalArgumentException e) {
             throw new InvalidJwtException("JWT claims string is empty or null");
         } catch (JwtException e) {
-            throw new InvalidJwtException("Invalid JWT token: " + e.getMessage());
+            throw new InvalidJwtException("Invalid JWT token");
         }
     }
 

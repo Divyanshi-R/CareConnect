@@ -2,6 +2,7 @@ package com.careconnect.service;
 
 import com.careconnect.dto.EncounterRequest;
 import com.careconnect.dto.EncounterResponse;
+import com.careconnect.entity.AuditAction;
 import com.careconnect.entity.*;
 import com.careconnect.exception.ResourceNotFoundException;
 import com.careconnect.repository.*;
@@ -21,19 +22,22 @@ public class EncounterService {
     private final DoctorRepository doctorRepository;
     private final AppointmentRepository appointmentRepository;
     private final UserRepository userRepository;
+    private final AuditLogService auditLogService;
 
     public EncounterService(
             EncounterRepository encounterRepository,
             PatientRepository patientRepository,
             DoctorRepository doctorRepository,
             AppointmentRepository appointmentRepository,
-            UserRepository userRepository
+            UserRepository userRepository,
+            AuditLogService auditLogService
     ) {
         this.encounterRepository = encounterRepository;
         this.patientRepository = patientRepository;
         this.doctorRepository = doctorRepository;
         this.appointmentRepository = appointmentRepository;
         this.userRepository = userRepository;
+        this.auditLogService = auditLogService;
     }
 
     @Transactional
@@ -97,6 +101,7 @@ public class EncounterService {
         encounter.setVitals(request.vitals());
 
         Encounter saved = encounterRepository.save(encounter);
+        auditLogService.record(AuditAction.ENCOUNTER_CREATED, requestingUser, "Encounter", saved.getId());
         return EncounterResponse.fromEntity(saved);
     }
 

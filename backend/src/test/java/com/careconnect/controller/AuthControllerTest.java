@@ -2,7 +2,10 @@ package com.careconnect.controller;
 
 import com.careconnect.dto.LoginRequest;
 import com.careconnect.dto.RegisterRequest;
+import com.careconnect.entity.AuditAction;
+import com.careconnect.entity.AuditLog;
 import com.careconnect.entity.Role;
+import com.careconnect.repository.AuditLogRepository;
 import com.careconnect.repository.UserRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -33,10 +36,14 @@ class AuthControllerTest {
     private UserRepository userRepository;
 
     @Autowired
+    private AuditLogRepository auditLogRepository;
+
+    @Autowired
     private ObjectMapper objectMapper;
 
     @BeforeEach
     void setUp() {
+        auditLogRepository.deleteAll();
         userRepository.deleteAll();
     }
 
@@ -94,14 +101,26 @@ class AuthControllerTest {
 
         // Login with correct credentials
         LoginRequest loginRequest = new LoginRequest("login.success@example.com", "Password123");
-        mockMvc.perform(post("/api/auth/login")
+        MvcResult loginResult = mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(loginRequest)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.token").isString())
                 .andExpect(jsonPath("$.userId").isNumber())
                 .andExpect(jsonPath("$.email").value("login.success@example.com"))
-                .andExpect(jsonPath("$.role").value("PATIENT"));
+                .andExpect(jsonPath("$.role").value("PATIENT"))
+                .andReturn();
+
+        String token = objectMapper.readTree(loginResult.getResponse().getContentAsString()).get("token").asText();
+        AuditLog auditLog = auditLogRepository.findByAction(AuditAction.LOGIN).stream()
+                .filter(log -> log.getUserId().equals(userRepository.findByEmail("login.success@example.com")
+                        .orElseThrow().getId()))
+                .findFirst()
+                .orElseThrow();
+        assertThat(auditLog.getEntityType()).isEqualTo("User");
+        assertThat(auditLog.getTimestamp()).isNotNull();
+        assertThat(auditLog.getIpAddress()).isNotBlank();
+        assertAuditContainsNoCredentials(auditLog, "Password123", token);
     }
 
     @Test
@@ -123,6 +142,24 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.status").value(401))
                 .andExpect(jsonPath("$.error").value("Unauthorized"))
                 .andExpect(jsonPath("$.message").value("Invalid email or password"));
+
+        Long userId = userRepository.findByEmail("login.fail@example.com").orElseThrow().getId();
+        AuditLog auditLog = auditLogRepository.findByAction(AuditAction.FAILED_LOGIN).stream()
+                .filter(log -> userId.equals(log.getUserId()))
+                .findFirst()
+                .orElseThrow();
+        assertThat(auditLog.getTimestamp()).isNotNull();
+        assertThat(auditLog.getIpAddress()).isNotBlank();
+        assertAuditContainsNoCredentials(auditLog, "Password123", "WrongPassword999");
+    }
+
+    private void assertAuditContainsNoCredentials(AuditLog auditLog, String... credentials) {
+        String serializedAuditFields = auditLog.getUserId() + "|" + auditLog.getAction() + "|"
+                + auditLog.getEntityType() + "|" + auditLog.getEntityId() + "|"
+                + auditLog.getTimestamp() + "|" + auditLog.getIpAddress();
+        for (String credential : credentials) {
+            assertThat(serializedAuditFields).doesNotContain(credential);
+        }
     }
 
     @Test

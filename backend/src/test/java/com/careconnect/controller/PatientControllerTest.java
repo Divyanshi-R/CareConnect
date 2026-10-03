@@ -2,7 +2,10 @@ package com.careconnect.controller;
 
 import com.careconnect.dto.LoginRequest;
 import com.careconnect.dto.PatientRequest;
+import com.careconnect.entity.AuditAction;
+import com.careconnect.entity.AuditLog;
 import com.careconnect.entity.Role;
+import com.careconnect.repository.AuditLogRepository;
 import com.careconnect.repository.PatientRepository;
 import com.careconnect.repository.UserRepository;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -36,6 +39,9 @@ class PatientControllerTest {
     private UserRepository userRepository;
 
     @Autowired
+    private AuditLogRepository auditLogRepository;
+
+    @Autowired
     private PatientRepository patientRepository;
 
     @Autowired
@@ -43,6 +49,7 @@ class PatientControllerTest {
 
     @BeforeEach
     void setUp() {
+        auditLogRepository.deleteAll();
         patientRepository.deleteAll();
         userRepository.deleteAll();
     }
@@ -94,6 +101,21 @@ class PatientControllerTest {
         mockMvc.perform(put("/api/patients/" + patientId).header("Authorization", "Bearer " + patientUserToken)
                         .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(updateReq)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.firstName").value("Alice2"));
+
+        Long adminUserId = userRepository.findByEmail("admin.p@example.com").orElseThrow().getId();
+        assertPatientAudit(AuditAction.PATIENT_CREATED, patientId, adminUserId);
+        assertPatientAudit(AuditAction.PATIENT_UPDATED, patientId, patientUserId);
+    }
+
+    private void assertPatientAudit(AuditAction action, Long patientId, Long actorId) {
+        AuditLog auditLog = auditLogRepository.findByAction(action).stream()
+                .filter(log -> patientId.equals(log.getEntityId()))
+                .findFirst()
+                .orElseThrow();
+        org.assertj.core.api.Assertions.assertThat(auditLog.getUserId()).isEqualTo(actorId);
+        org.assertj.core.api.Assertions.assertThat(auditLog.getEntityType()).isEqualTo("Patient");
+        org.assertj.core.api.Assertions.assertThat(auditLog.getTimestamp()).isNotNull();
+        org.assertj.core.api.Assertions.assertThat(auditLog.getIpAddress()).isNotBlank();
     }
 
     @Test

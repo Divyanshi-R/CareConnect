@@ -4,6 +4,7 @@ import com.careconnect.dto.PrescriptionItemRequest;
 import com.careconnect.dto.PrescriptionItemResponse;
 import com.careconnect.dto.PrescriptionRequest;
 import com.careconnect.dto.PrescriptionResponse;
+import com.careconnect.entity.AuditAction;
 import com.careconnect.dto.MedicationResponse;
 import com.careconnect.entity.Doctor;
 import com.careconnect.entity.Encounter;
@@ -42,6 +43,7 @@ public class PrescriptionService {
     private final MedicationRepository medicationRepository;
     private final UserRepository userRepository;
     private final PatientService patientService;
+    private final AuditLogService auditLogService;
 
     public PrescriptionService(
             PrescriptionRepository prescriptionRepository,
@@ -51,7 +53,8 @@ public class PrescriptionService {
             DoctorRepository doctorRepository,
             MedicationRepository medicationRepository,
             UserRepository userRepository,
-            PatientService patientService
+            PatientService patientService,
+            AuditLogService auditLogService
     ) {
         this.prescriptionRepository = prescriptionRepository;
         this.prescriptionItemRepository = prescriptionItemRepository;
@@ -61,6 +64,7 @@ public class PrescriptionService {
         this.medicationRepository = medicationRepository;
         this.userRepository = userRepository;
         this.patientService = patientService;
+        this.auditLogService = auditLogService;
     }
 
     @Transactional(readOnly = true)
@@ -102,6 +106,7 @@ public class PrescriptionService {
                 .map(item -> toEntity(saved.getId(), item))
                 .toList();
         prescriptionItemRepository.saveAll(items);
+        auditLogService.record(AuditAction.PRESCRIPTION_CREATED, requestingUser, "Prescription", saved.getId());
         return toResponse(saved);
     }
 
